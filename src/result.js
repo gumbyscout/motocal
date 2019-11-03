@@ -1,180 +1,29 @@
 var React = require('react');
-var {Thumbnail, ControlLabel, Button, ButtonGroup, ButtonToolbar, Collapse, DropdownButton, MenuItem, FormControl, Checkbox, Modal, Image, Popover} = require('react-bootstrap');
 var CreateClass = require('create-react-class');
-var Simulator = require('./simulator.js');
-var {HPChart} = require('./chart.js');
-var {AdsenseAdvertisement} = require('./advertisement.js');
 var intl = require('./translate.js');
-var {HPChartHowTo} = require('./howto.js');
 var supplemental = require('./supplemental.js');
 var GlobalConst = require('./global_const.js');
 
-var TextWithTooltip = GlobalConst.TextWithTooltip;
-var ElementColorLabel = GlobalConst.ElementColorLabel;
-var elementRelation = GlobalConst.elementRelation;
-var bahamutRelation = GlobalConst.bahamutRelation;
-var bahamutFURelation = GlobalConst.bahamutFURelation;
-var supportAbilities = GlobalConst.supportAbilities;
 var selector = GlobalConst.selector;
-var zenith = GlobalConst.zenith;
 var Jobs = GlobalConst.Jobs;
-var armTypes = GlobalConst.armTypes;
-var jobTypes = GlobalConst.jobTypes;
 var keyTypes = GlobalConst.keyTypes;
-var skilltypes = GlobalConst.skilltypes;
-var skillAmounts = GlobalConst.skillAmounts;
-var elementTypes = GlobalConst.elementTypes;
 var summonTypes = GlobalConst.summonTypes;
 var summonElementTypes = GlobalConst.summonElementTypes;
-var raceTypes = GlobalConst.raceTypes;
-var sexTypes = GlobalConst.sexTypes;
-var filterElementTypes = GlobalConst.filterElementTypes;
-var enemyDefenseType = GlobalConst.enemyDefenseType;
 var _ua = GlobalConst._ua;
 var getElementColorLabel = GlobalConst.getElementColorLabel;
 
 var {
-    isCosmos, isDarkOpus, isHollowsky, isValidResult, checkNumberOfRaces, proceedIndex,
-    calcCombinations, calcDamage, calcOugiDamage, treatSupportAbility,
-    calcHaisuiValue, calcBasedOneSummon, addSkilldataToTotals, calcOneCombination,
-    initializeTotals, getTesukatoripokaAmount, recalcCharaHaisui, getTotalBuff,
-    getInitialTotals, getTypeBonus, getTypeBonusStr, calcCriticalDeviation
+    checkNumberOfRaces,  getTesukatoripokaAmount, getTypeBonus, getTypeBonusStr, calcCriticalDeviation
 } = require('./global_logic.js');
 
+const ResultWorker = require('worker-loader!./calculate_result_worker.js');
+
 var ResultList = CreateClass({
-    calculateResult: function (newprops) {
-        var prof = newprops.profile;
-        var arml = newprops.armlist;
-        var summon = newprops.summon;
-        var chara = newprops.chara;
-
-        if (prof != undefined && arml != undefined && summon != undefined && chara != undefined) {
-            var totalBuff = getTotalBuff(prof);
-
-            // Since the parameter added later may be NaN, additional processing
-            // If sortKey is not a NaN, use that, NaN if it's general attack power
-            var sortkey = "averageCyclePerTurn";
-            var sortkeyname = "予想ターン毎ダメージのパーティ平均値";
-            if (newprops.sortKey == newprops.sortKey) {
-                sortkey = newprops.sortKey;
-                sortkeyname = keyTypes[sortkey]
-            }
-
-            // If combinations have not been changed, use old guys
-            if (this.state.previousArmlist != null) {
-                var isCombinationChanged = false;
-                if (this.state.previousArmlist.length != arml.length || prof.filterOptionsChanged) {
-                    isCombinationChanged = true;
-                    prof.filterOptionsChanged = false;
-                }
-                if (!isCombinationChanged) {
-                    for (var i = 0; i < arml.length; i = (i + 1) | 0) {
-                        if (arml[i].considerNumberMax != this.state.previousArmlist[i].considerNumberMax || arml[i].considerNumberMin != this.state.previousArmlist[i].considerNumberMin) {
-                            isCombinationChanged = true;
-                        }
-                        // Combination changes depending on whether it became a cosmos weapon, or it was not a cosmos weapon
-                        if (isCosmos(arml[i]) != isCosmos(this.state.previousArmlist[i])) {
-                            isCombinationChanged = true;
-                        }
-                        if (isHollowsky(arml[i]) != isHollowsky(this.state.previousArmlist[i])) {
-                            isCombinationChanged = true;
-                        }
-                        if (isDarkOpus(arml[i]) != isDarkOpus(this.state.previousArmlist[i])) {
-                            isCombinationChanged = true;
-                        }
-                    }
-                }
-                if (isCombinationChanged) {
-                    var combinations = calcCombinations(arml, prof.ruleMaxSize);
-                    this.setState({previousArmlist: JSON.parse(JSON.stringify(arml))});
-                    this.setState({previousCombinations: JSON.parse(JSON.stringify(combinations))})
-                } else {
-                    var combinations = this.state.previousCombinations
-                }
-            } else {
-                var combinations = calcCombinations(arml, prof.ruleMaxSize);
-                this.setState({previousArmlist: JSON.parse(JSON.stringify(arml))});
-                this.setState({previousCombinations: JSON.parse(JSON.stringify(combinations))})
-            }
-
-            var res = [];
-            var minSortKey = [];
-            for (var i = 0; i < summon.length; i++) {
-                res[i] = [];
-                minSortKey[i] = -1
-            }
-
-            var totals = getInitialTotals(prof, chara, summon);
-            treatSupportAbility(totals, chara, totalBuff);
-            var itr = combinations.length;
-            var totalItr = itr * summon.length * Object.keys(totals).length;
-
-            // If necessary values for preprocessing are prepared here
-            var minHP = (prof.minimumHP == undefined) ? undefined : parseInt(prof.minimumHP);
-
-            for (var i = 0; i < itr; i = (i + 1) | 0) {
-                var oneres = calcOneCombination(combinations[i], summon, prof, arml, totals, totalBuff);
-                for (var j = 0; j < summon.length; j++) {
-                    // For each result preprocessing
-                    if (isValidResult(oneres[j], minHP)) {
-                        if (res[j].length < 10) {
-                            // First update minSortkey
-                            if (minSortKey[j] < 0 || minSortKey[j] > oneres[j].Djeeta[sortkey]) {
-                                minSortKey[j] = oneres[j].Djeeta[sortkey]
-                            }
-                            res[j].push({data: oneres[j], armNumbers: combinations[i]});
-                        } else {
-                            // Only those larger than minSortkey push
-                            if (oneres[j].Djeeta[sortkey] >= minSortKey[j]) {
-                                // Add to eleventh
-                                res[j].push({data: oneres[j], armNumbers: combinations[i]});
-
-                                // Erase what matches minSortkey [j] up to the 10th
-                                var spliceid = -1;
-                                for (var k = 0; k < 10; k = (k + 1) | 0) {
-                                    if (res[j][k].data.Djeeta[sortkey] == minSortKey[j]) {
-                                        spliceid = k
-                                    }
-                                }
-                                res[j].splice(spliceid, 1);
-                                minSortKey[j] = -1;
-
-                                // Since it became an array of ten, once again calculate the minimum value
-                                for (var k = 0; k < 10; k = (k + 1) | 0) {
-                                    if (minSortKey[j] < 0 || minSortKey[j] > res[j][k].data.Djeeta[sortkey]) {
-                                        minSortKey[j] = res[j][k].data.Djeeta[sortkey]
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                initializeTotals(totals)
-            }
-            // At this point, summonres should be an array of "array of associative arrays of result data corresponding to each summon"
-            for (var i = 0; i < summon.length; i++) {
-                if (sortkey == "ATKandHP") {
-                    res[i].sort(function (a, b) {
-                        if ((a.data.Djeeta.displayAttack + a.data.Djeeta.displayHP) < (b.data.Djeeta.displayAttack + b.data.Djeeta.displayHP)) return 1;
-                        if ((a.data.Djeeta.displayAttack + a.data.Djeeta.displayHP) > (b.data.Djeeta.displayAttack + b.data.Djeeta.displayHP)) return -1;
-                        return 0;
-                    });
-                } else {
-                    res[i].sort(function (a, b) {
-                        if (a["data"]["Djeeta"][sortkey] < b["data"]["Djeeta"][sortkey]) return 1;
-                        if (a["data"]["Djeeta"][sortkey] > b["data"]["Djeeta"][sortkey]) return -1;
-                        return 0;
-                    });
-                }
-                while (res[i].length > 10) {
-                    res[i].pop();
-                }
-            }
-
-            return {summon: summon, result: res, sortkeyname: sortkeyname, totalItr: totalItr}
-        } else {
-            return {summon: summon, result: []}
-        }
+    calculateResult: function (props) {
+      ResultWorker.onmessage = function (result) {
+        this.setState({ result });
+      }
+      ResultWorker.postMessage(props);
     },
     getInitialState: function () {
         return {
@@ -243,8 +92,7 @@ var ResultList = CreateClass({
     },
     componentWillReceiveProps: function (nextProps) {
         if (this.state.disableAutoResultUpdate != 1 && (nextProps.noResultUpdate == undefined || !nextProps.noResultUpdate)) {
-            var allresult = this.calculateResult(nextProps);
-            this.setState({result: allresult});
+            this.calculateResult(nextProps);
         }
 
         // Whether armlist has not been changed check => If changed, erase until now
@@ -271,11 +119,11 @@ var ResultList = CreateClass({
         var newState = this.state;
         newState[key] = (newState[key] == 0) ? 1 : 0;
 
+        this.setState(newState)
         // UPDATE after automatic update ON
         if (key == "disableAutoResultUpdate" && newState[key] == 0) {
-            newState["result"] = this.calculateResult(this.props)
+            this.calculateResult(this.props);
         }
-        this.setState(newState)
     },
     openHPChart: function (e) {
         var sortkey = "averageCyclePerTurn";
@@ -360,7 +208,7 @@ var ResultList = CreateClass({
         this.setState({storedList: newStoredList})
     },
     forceResultUpdate: function () {
-        this.setState({result: this.calculateResult(this.props)})
+        this.calculateResult(this.props);
     },
     openDisplayTable: function () {
         this.setState({openDisplayElementTable: !this.state.openDisplayElementTable})
@@ -479,7 +327,7 @@ var ResultList = CreateClass({
                     key={i + 1}>&nbsp;/&nbsp;{getElementColorLabel(chara[i].element, locale)}&nbsp;{charaInfoStr}</span>);
             }
         }
-    
+
         var addPercent = (value) => intl.translate("percent", locale).replace("{}", value === undefined ? "0" : value);
 
         // Create buff info line
@@ -493,7 +341,7 @@ var ResultList = CreateClass({
         buffInfo.push(intl.translate("烈日の楽園", locale) + (prof.retsujitsuNoRakuen ? intl.translate("アクティブ", locale) : intl.translate("無効", locale)));
         buffInfo.push(intl.translate("死ト愛ノ世界", locale) + (prof.shiToAiNoSekai ? intl.translate("アクティブ", locale) : intl.translate("無効", locale)));
         var buffInfoStr = buffInfo.join(", ");
-    
+
         // Enemy info line
         var enemyInfo = [];
         enemyInfo.push(intl.translate("敵防御固有値", locale) + (prof.enemyDefense === undefined ? "0" : prof.enemyDefense));
@@ -1096,7 +944,7 @@ var Result = CreateClass({
                 }
 
                 if (sw.switchCharaHP) {
-                    let {totalHP, remainHP} = m.data[key]; 
+                    let {totalHP, remainHP} = m.data[key];
                     for (key in m.data) {
                         charaDetail[key].push(
                             <span key={key + "-HP"} className="result-chara-detail">
@@ -1241,24 +1089,24 @@ var Result = CreateClass({
                             let  _limitValues = limitValues[3][0] + (limitValues[2][0] - limitValues[3][0]) * limitValues[3][1] +
                             (limitValues[1][0] - limitValues[2][0]) * limitValues[2][1] +
                             (limitValues[0][0] - limitValues[1][0]) * limitValues[1][1];
-                            
+
                             // In the case of ougi.
                             _limitValues += ougiFixedDamage * criticalRatio;
-                            
+
                             _limitValues *= Math.max(1.0, 1.0 + damageUP);
                             _limitValues *= Math.max(0.0, Math.min(1.0, 1.0 - enemyResistance));
                             _limitValues += supplementalDamage;
-                            
+
                             return _limitValues;
                         }
-                        
+
                         // Generate supplemental Damage.
                         let damageSupplemental = 0, damageWithoutCriticalSupplemental = 0, ougiDamageSupplemental = 0, chainBurstSupplemental = 0;
                         [damageSupplemental, damageWithoutCriticalSupplemental, ougiDamageSupplemental, chainBurstSupplemental] = supplemental.calcOthersDamage(m.data[key].skilldata.supplementalDamageArray, [damageSupplemental, damageWithoutCriticalSupplemental, ougiDamageSupplemental, chainBurstSupplemental], {remainHP: m.data[key].remainHP});
-                        
+
                         let normalDamageRealLimit = createRealLimitValues(m.data[key].normalDamageLimitValues, m.data[key].skilldata.damageUP, m.data[key].skilldata.enemyResistance, 0, 0, damageSupplemental);
                         let ougiDamageRealLimit = createRealLimitValues(m.data[key].ougiDamageLimitValues, m.data[key].skilldata.damageUP, m.data[key].skilldata.enemyResistance, m.data[key].ougiFixedDamage, m.data[key].criticalRatio, ougiDamageSupplemental);
-                        
+
                         charaDetail[key].push(
                                 <div key={key + "-LimitValues"}>
                                     <span key={key + "-LimitValues"}>
@@ -1404,7 +1252,7 @@ var Result = CreateClass({
                                             <th className="bg-success">{intl.translate("与ダメージ上昇効果のソース", locale)}</th>
                                             {supplementalInfo.headers.map(([key, type, val]) =>
                                                 <th key={key} className="bg-success">
-                                                    {intl.translate(key, locale) + 
+                                                    {intl.translate(key, locale) +
                                                      (intl.translate("supplemental_"+type, locale)||"").replace("{value}", (val||"").toString())}
                                                 </th>)}
                                             <th className="bg-success">{intl.translate("合計", locale)}</th>

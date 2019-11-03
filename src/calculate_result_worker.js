@@ -19,11 +19,6 @@ const calculateResult = (
   chara,
   sortkey = "averageCyclePerTurn"
 ) => {
-  // var prof = newprops.profile;
-  // var arml = newprops.armlist;
-  // var summon = newprops.summon;
-  // var chara = newprops.chara;
-
   if (
     prof != undefined &&
     arml != undefined &&
@@ -197,4 +192,9 @@ const calculateResult = (
   } else {
     return { summon: summon, result: [] };
   }
+};
+
+self.onmessage = function({ prof, arml, summon, chara, sortKey }) {
+  const result = calculateResult(prof, arml, summon, chara, sortKey);
+  self.postMessage(result);
 };
