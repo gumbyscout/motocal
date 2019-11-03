@@ -17,7 +17,9 @@ const calculateResult = (
   arml,
   summon,
   chara,
-  sortkey = "averageCyclePerTurn"
+  sortkey = "averageCyclePerTurn",
+  previousArmlist,
+  previousCombinations
 ) => {
   if (
     prof != undefined &&
@@ -33,56 +35,43 @@ const calculateResult = (
       keyTypes[sortkey] || "予想ターン毎ダメージのパーティ平均値";
 
     // If combinations have not been changed, use old guys
-    if (this.state.previousArmlist != null) {
+    if (previousArmlist != null) {
       var isCombinationChanged = false;
-      if (
-        this.state.previousArmlist.length != arml.length ||
-        prof.filterOptionsChanged
-      ) {
+      if (previousArmlist.length != arml.length || prof.filterOptionsChanged) {
         isCombinationChanged = true;
         prof.filterOptionsChanged = false;
       }
       if (!isCombinationChanged) {
         for (var i = 0; i < arml.length; i = (i + 1) | 0) {
           if (
-            arml[i].considerNumberMax !=
-              this.state.previousArmlist[i].considerNumberMax ||
-            arml[i].considerNumberMin !=
-              this.state.previousArmlist[i].considerNumberMin
+            arml[i].considerNumberMax != previousArmlist[i].considerNumberMax ||
+            arml[i].considerNumberMin != previousArmlist[i].considerNumberMin
           ) {
             isCombinationChanged = true;
           }
           // Combination changes depending on whether it became a cosmos weapon, or it was not a cosmos weapon
-          if (isCosmos(arml[i]) != isCosmos(this.state.previousArmlist[i])) {
+          if (isCosmos(arml[i]) != isCosmos(previousArmlist[i])) {
             isCombinationChanged = true;
           }
-          if (
-            isHollowsky(arml[i]) != isHollowsky(this.state.previousArmlist[i])
-          ) {
+          if (isHollowsky(arml[i]) != isHollowsky(previousArmlist[i])) {
             isCombinationChanged = true;
           }
-          if (
-            isDarkOpus(arml[i]) != isDarkOpus(this.state.previousArmlist[i])
-          ) {
+          if (isDarkOpus(arml[i]) != isDarkOpus(previousArmlist[i])) {
             isCombinationChanged = true;
           }
         }
       }
       if (isCombinationChanged) {
         var combinations = calcCombinations(arml, prof.ruleMaxSize);
-        this.setState({ previousArmlist: JSON.parse(JSON.stringify(arml)) });
-        this.setState({
-          previousCombinations: JSON.parse(JSON.stringify(combinations))
-        });
+        previousArmlist = JSON.parse(JSON.stringify(arml));
+        previousCombinations = JSON.parse(JSON.stringify(combinations));
       } else {
-        var combinations = this.state.previousCombinations;
+        var combinations = previousCombinations;
       }
     } else {
       var combinations = calcCombinations(arml, prof.ruleMaxSize);
-      this.setState({ previousArmlist: JSON.parse(JSON.stringify(arml)) });
-      this.setState({
-        previousCombinations: JSON.parse(JSON.stringify(combinations))
-      });
+      previousArmlist = JSON.parse(JSON.stringify(arml));
+      previousCombinations = JSON.parse(JSON.stringify(combinations));
     }
 
     var res = [];
@@ -184,18 +173,39 @@ const calculateResult = (
     }
 
     return {
-      summon: summon,
-      result: res,
-      sortkeyname: sortkeyname,
-      totalItr: totalItr
+      result: {
+        summon: summon,
+        result: res,
+        sortkeyname: sortkeyname,
+        totalItr: totalItr
+      },
+      previousArmlist,
+      previousCombinations
     };
   } else {
-    return { summon: summon, result: [] };
+    return { result: { summon: summon, result: [] } };
   }
 };
 
-self.onmessage = function({ data: { prof, arml, summon, chara, sortKey } }) {
-  console.log(prof, arml, summon, chara, sortKey)
-  const result = calculateResult(prof, arml, summon, chara, sortKey);
+self.onmessage = function({
+  data: {
+    profile,
+    armlist,
+    summon,
+    chara,
+    sortKey,
+    previousArmlist,
+    previousCombinations
+  }
+}) {
+  const result = calculateResult(
+    profile,
+    armlist,
+    summon,
+    chara,
+    sortKey,
+    previousArmlist,
+    previousCombinations
+  );
   self.postMessage(result);
 };

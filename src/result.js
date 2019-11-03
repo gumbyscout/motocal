@@ -43,13 +43,25 @@ var {
 const ResultWorker = require('worker-loader!./calculate_result_worker.js');
 
 var ResultList = CreateClass({
-    calculateResult: function ({ prof, arml, summon, chara, sortKey }) {
+    calculateResult: function ({ profile, armlist, summon, chara, sortKey }) {
+      const { previousArmlist, previousCombinations } = this.state;
       const worker = new ResultWorker();
-      worker.onmessage = ({ data: result }) => {
-        console.log(result)
-        this.setState({ result });
+      worker.onmessage = ({ data: { result, previousArmlist, previousCombinations} }) => {
+        this.setState({
+          result,
+          previousArmlist: previousArmlist || this.state.previousArmlist,
+          previousCombinations: previousCombinations || this.state.previousCombinations
+        });
       }
-      worker.postMessage({ prof, arml, summon, chara, sortKey });
+      worker.postMessage({
+        profile,
+        armlist,
+        summon,
+        chara,
+        sortKey,
+        previousArmlist,
+        previousCombinations
+      });
     },
     getInitialState: function () {
         return {
