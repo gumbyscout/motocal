@@ -1,5 +1,5 @@
 var React = require('react');
-var {Thumbnail, ControlLabel, Button, ButtonGroup, ButtonToolbar, Collapse, DropdownButton, MenuItem, FormControl, Checkbox, Modal, Image, Popover} = require('react-bootstrap');
+var {Thumbnail, ControlLabel, Button, ButtonGroup, ButtonToolbar, Collapse, DropdownButton, MenuItem, FormControl, Checkbox, Modal, Image, Popover, ProgressBar} = require('react-bootstrap');
 var CreateClass = require('create-react-class');
 var Simulator = require('./simulator.js');
 var {HPChart} = require('./chart.js');
@@ -45,12 +45,16 @@ const ResultWorker = require('worker-loader!./calculate_result_worker.js');
 var ResultList = CreateClass({
     calculateResult: function ({ profile, armlist, summon, chara, sortKey }) {
       const { previousArmlist, previousCombinations } = this.state;
+      this.setState({
+        calculatingResult: true
+      });
       const worker = new ResultWorker();
       worker.onmessage = ({ data: { result, previousArmlist, previousCombinations} }) => {
         this.setState({
           result,
           previousArmlist: previousArmlist || this.state.previousArmlist,
-          previousCombinations: previousCombinations || this.state.previousCombinations
+          previousCombinations: previousCombinations || this.state.previousCombinations,
+          calculatingResult: false
         });
       }
       worker.postMessage({
@@ -113,7 +117,8 @@ var ResultList = CreateClass({
             previousArmlist: null,
             previousCombinations: null,
             ruleMaxSize: true,
-            filterOptionsChanged: false
+            filterOptionsChanged: false,
+            calculatingResult: false
         };
     },
     closeHPChart: function () {
@@ -722,7 +727,7 @@ var ResultList = CreateClass({
                         <AdsenseAdvertisement locale={locale} type="pc-2"/>
                     </div>
 
-                    {summon.map(function (s, summonindex) {
+                    {summon.map((s, summonindex) => {
                         var selfSummonHeader = "";
                         if (s.selfSummonType == "odin") {
                             selfSummonHeader = intl.translate(summonElementTypes[s.selfElement].name, locale) + intl.translate("属性攻", locale) + s.selfSummonAmount + intl.translate("キャラ攻", locale) + s.selfSummonAmount2
@@ -777,7 +782,9 @@ var ResultList = CreateClass({
                                     </thead>
                                     <Result key={summonindex} summonid={summonindex} data={result[summonindex]}
                                             switcher={switcher} arm={arm} prof={prof}
-                                            onAddToHaisuiData={onAddToHaisuiData} locale={locale}/>
+                                            onAddToHaisuiData={onAddToHaisuiData} locale={locale}
+                                            calculating={this.state.calculatingResult}
+                                            />
                                 </table>
                             </div>
                         );
@@ -877,6 +884,16 @@ var Result = CreateClass({
         var onClick = this.onClick;
         var locale = this.props.locale;
         const formatCommaSeparatedNumber = num => String(Math.round(num)).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, '$1,');
+
+        if (this.props.calculating) {
+          return (
+            <tbody className="result">
+              <tr><td colSpan="999">
+                <ProgressBar active now={100} />
+              </td></tr>
+            </tbody>
+          );
+        }
 
         return (
             <tbody className="result">
