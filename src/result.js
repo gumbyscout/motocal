@@ -43,12 +43,13 @@ var {
 const ResultWorker = require('worker-loader!./calculate_result_worker.js');
 
 var ResultList = CreateClass({
-    calculateResult: function (props) {
+    calculateResult: function ({ prof, arml, summon, chara, sortKey }) {
       const worker = new ResultWorker();
-      worker.onmessage = function (result) {
+      worker.onmessage = ({ data: result }) => {
+        console.log(result)
         this.setState({ result });
       }
-      worker.postMessage(props);
+      worker.postMessage({ prof, arml, summon, chara, sortKey });
     },
     getInitialState: function () {
         return {

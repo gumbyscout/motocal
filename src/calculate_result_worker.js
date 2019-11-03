@@ -194,7 +194,8 @@ const calculateResult = (
   }
 };
 
-self.onmessage = function({ prof, arml, summon, chara, sortKey }) {
+self.onmessage = function({ data: { prof, arml, summon, chara, sortKey } }) {
+  console.log(prof, arml, summon, chara, sortKey)
   const result = calculateResult(prof, arml, summon, chara, sortKey);
   self.postMessage(result);
 };
