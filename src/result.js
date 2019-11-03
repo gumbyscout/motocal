@@ -1,29 +1,54 @@
 var React = require('react');
+var {Thumbnail, ControlLabel, Button, ButtonGroup, ButtonToolbar, Collapse, DropdownButton, MenuItem, FormControl, Checkbox, Modal, Image, Popover} = require('react-bootstrap');
 var CreateClass = require('create-react-class');
+var Simulator = require('./simulator.js');
+var {HPChart} = require('./chart.js');
+var {AdsenseAdvertisement} = require('./advertisement.js');
 var intl = require('./translate.js');
+var {HPChartHowTo} = require('./howto.js');
 var supplemental = require('./supplemental.js');
 var GlobalConst = require('./global_const.js');
 
+var TextWithTooltip = GlobalConst.TextWithTooltip;
+var ElementColorLabel = GlobalConst.ElementColorLabel;
+var elementRelation = GlobalConst.elementRelation;
+var bahamutRelation = GlobalConst.bahamutRelation;
+var bahamutFURelation = GlobalConst.bahamutFURelation;
+var supportAbilities = GlobalConst.supportAbilities;
 var selector = GlobalConst.selector;
+var zenith = GlobalConst.zenith;
 var Jobs = GlobalConst.Jobs;
+var armTypes = GlobalConst.armTypes;
+var jobTypes = GlobalConst.jobTypes;
 var keyTypes = GlobalConst.keyTypes;
+var skilltypes = GlobalConst.skilltypes;
+var skillAmounts = GlobalConst.skillAmounts;
+var elementTypes = GlobalConst.elementTypes;
 var summonTypes = GlobalConst.summonTypes;
 var summonElementTypes = GlobalConst.summonElementTypes;
+var raceTypes = GlobalConst.raceTypes;
+var sexTypes = GlobalConst.sexTypes;
+var filterElementTypes = GlobalConst.filterElementTypes;
+var enemyDefenseType = GlobalConst.enemyDefenseType;
 var _ua = GlobalConst._ua;
 var getElementColorLabel = GlobalConst.getElementColorLabel;
 
 var {
-    checkNumberOfRaces,  getTesukatoripokaAmount, getTypeBonus, getTypeBonusStr, calcCriticalDeviation
+    isCosmos, isDarkOpus, isHollowsky, isValidResult, checkNumberOfRaces, proceedIndex,
+    calcCombinations, calcDamage, calcOugiDamage, treatSupportAbility,
+    calcHaisuiValue, calcBasedOneSummon, addSkilldataToTotals, calcOneCombination,
+    initializeTotals, getTesukatoripokaAmount, recalcCharaHaisui, getTotalBuff,
+    getInitialTotals, getTypeBonus, getTypeBonusStr, calcCriticalDeviation
 } = require('./global_logic.js');
-
 const ResultWorker = require('worker-loader!./calculate_result_worker.js');
 
 var ResultList = CreateClass({
     calculateResult: function (props) {
-      ResultWorker.onmessage = function (result) {
+      const worker = new ResultWorker();
+      worker.onmessage = function (result) {
         this.setState({ result });
       }
-      ResultWorker.postMessage(props);
+      worker.postMessage(props);
     },
     getInitialState: function () {
         return {
